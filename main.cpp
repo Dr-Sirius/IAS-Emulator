@@ -62,6 +62,7 @@ void baseConverter(int n, int base) {
 }
 
 string binaryString(int n) {
+  return std::to_string(n);
   string symb = "012";
   stack<char> s;
   string bin = "";
@@ -223,7 +224,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU) {
     std::println("STOR M({},20:39)", CU.MAR);
     int32_t addr = MEMORY[CU.MAR];
     int8_t op1 = (addr >> 24) & 0b11111111;
-    int8_t mem1 = addr & 0b11111111;
+    int8_t mem1 = (addr >> 16) & 0b11111111;
     int8_t op2 = (addr >> 8) & 0b11111111;
     MEMORY[CU.MAR] = (op1 << 24) | (mem1 << 16) | (op2 << 8) | ALU.AC;
     break;
@@ -277,6 +278,7 @@ int main() {
   MEMORY[72] = -3;
   MEMORY[73] = -4;
   MEMORY[74] = -5;
+
   MEMORY[50] = 80;
 
   INSTRUCTION l3 = {LOAD_M, 84};
@@ -286,14 +288,15 @@ int main() {
   INSTRUCTION l5 = {SUB_M, 0};
   INSTRUCTION r5 = {JUMP_PMR, 6};
   INSTRUCTION l6 = {HALT};
-  INSTRUCTION r6 = {LOAD_M, 2};
-  INSTRUCTION l7 = {ADD_M, 50};
-  INSTRUCTION r7 = {STOR_ML, 3};
-  INSTRUCTION l8 = {SUB_M, 1};
-  INSTRUCTION r8 = {STOR_MR, 3};
-  INSTRUCTION l9 = {SUB_M, 1};
-  INSTRUCTION r9 = {STOR_ML, 4};
-  INSTRUCTION l10 = {JUMP_ML, 3};
+  INSTRUCTION r6 = {STOR_M, 2};
+  INSTRUCTION l7 = {LOAD_M, 2};
+  INSTRUCTION r7 = {ADD_M, 50};
+  INSTRUCTION l8 = {STOR_ML, 3};
+  INSTRUCTION r8 = {SUB_M, 1};
+  INSTRUCTION l9 = {STOR_MR, 3};
+  INSTRUCTION r9 = {SUB_M, 1};
+  INSTRUCTION l10 = {STOR_ML, 4};
+  INSTRUCTION r10 = {JUMP_ML, 3};
 
   loadInstrIntoMEM(3, l3, r3);
   loadInstrIntoMEM(4, l4, r4);
@@ -302,7 +305,7 @@ int main() {
   loadInstrIntoMEM(7, l7, r7);
   loadInstrIntoMEM(8, l8, r8);
   loadInstrIntoMEM(9, l9, r9);
-  loadInstrIntoMEM(10, l10);
+  loadInstrIntoMEM(10, l10, r10);
 
   CU.PC = 3;
   while (!shouldHalt) {
