@@ -16,6 +16,15 @@ uint cycleCount = 0;
 bool shouldHalt = false;
 bool right = false;
 
+/**
+ * Struct Representing IAS Control Unit
+ *
+ * #### Members:
+ * `PC`  - Program Counter
+ * `IBR` - Instruction Buffer Register
+ * `IR`  - Instruction Register
+ * `MAR` - Memory Address Register
+ */
 struct CPU_CU {
   int32_t PC;  // program counter
   int32_t IBR; // Instruction Buffer Register
@@ -23,6 +32,14 @@ struct CPU_CU {
   int32_t MAR; // Memory Address Buffer
 };
 
+/**
+ * Struct Representing IAS Arithmetic Logic Unit
+ *
+ * #### Members:
+ * `AC`  - Accumulator Counter
+ * `MQ`  - Multiplier/Quotient
+ * `MBR` - Memory Buffer Register
+ */
 struct CPU_ALU {
   int32_t AC; // Accumulator
   int32_t MQ;
@@ -46,7 +63,6 @@ enum OPCODES : int8_t {
   JUMP_PMR = 0b00010000,   // 16 - If AC >= 0 jump to M right instr
   STOR_ML = 0b00010010,    // 18 - Replace M at left instr with AC
   STOR_MR = 0b00010011,    // 19 - Replace M at right instr with AC
-
 };
 
 struct INSTRUCTION {
@@ -54,6 +70,19 @@ struct INSTRUCTION {
   int8_t operand = 0b0;
 };
 
+/**
+ * @brief Converts number into binary string representation
+ *
+ *
+ * @param n Number to be converted to binary string
+ * @return binary string representation of n
+ *
+ * #### Usage:
+ * ```cpp
+ * std::string bin = binaryString(11); // returns "1011"
+ * ```
+ *
+ **/
 string binaryString(int32_t n) {
   // return std::to_string(n);
   n = abs(n);
@@ -68,12 +97,53 @@ string binaryString(int32_t n) {
   return bin;
 }
 
+/**
+ * @brief Loads given Instructions into specified memory address
+ *
+ * @param address Memory address to load instructions
+ * @param instr1 Instruction to be loaded into left hand side of memory block,
+ * Defaults to HALT instruction
+ * @param instr2 Instruction to be loaded into right hand side of memory block,
+ * Defaults to HALT instruction
+ *
+ * #### Usage:
+ * ```cpp
+ * INSTRUCTION leftInstr =  {LOAD_M,0};
+ * INSTRUCTION rightInstr = {ADD_M,10};
+ * loadInstrIntoMEM(2,leftInstr,rightInstr);
+ * ```
+ * Or
+ * ```cpp
+ * INSTRUCTION leftInstr =  {0b00000001,0b0};
+ * INSTRUCTION rightInstr = {0b00000101,0b1010};
+ * loadInstrIntoMEM(0b10,leftInstr,rightInstr);
+ * ```
+ *
+ **/
 void loadInstrIntoMEM(int32_t address, INSTRUCTION instr1 = {HALT},
                       INSTRUCTION instr2 = {HALT}) {
   MEMORY[address] = (instr1.opcode << 24) | (instr1.operand << 16) |
                     (instr2.opcode << 8) | instr2.operand;
 }
 
+/**
+ * @brief Fetches instructions at current Program Counter Location and loads
+ * them into registers
+ *
+ * @param ALU Reference to Arithmetic Logic Unit
+ * @param CU Reference to Control Unit
+ *
+ * @details
+ * 1. Loads Program Counter into Memory Address Register (MAR <- PC)
+ * 2. Fetches operand at address stored in MAR and loads it into Memory Buffer
+ * Register (MBR <- M[MAR])
+ * 3. Places right hand instruction into Instruction Buffer Register (IBR
+ * <-MBR(20:39))
+ * 4. Places left hand instruction opcode into Instruction Register (IR <-
+ * MBR(0:7))
+ * 5. Places left hand instruction memory address argument into MAR (MAR
+ * <-MBR(8:19))
+ **/
 void fetchInstr(CPU_ALU &ALU, CPU_CU &CU) {
 #if DEBUG_FETCH_CYLE
   std::println("MAR <- PC");
@@ -113,6 +183,17 @@ void fetchInstr(CPU_ALU &ALU, CPU_CU &CU) {
   ++cycleCount;
 }
 
+/**
+ * @brief Setups instructions held in IBR and loads into IR and MAR
+ *
+ * @param ALU Reference to Arithmetic Logic Unit
+ * @param CU Reference to Control Unit
+ *
+ * @details
+ * 1. Loads OPCODE stored in IBR(20:27) into IR (IR <- IBR(20:27))
+ * 2. Loads operand stored in IBR(28:39) into Memory Address Register (MAR <-
+ * M[MAR])
+ **/
 void instrSetup(CPU_ALU &ALU, CPU_CU &CU) {
   int8_t op2 = (CU.IBR >> 8) & 0b11111111;
   int8_t mem = CU.IBR & 0b11111111;
@@ -132,10 +213,26 @@ void instrSetup(CPU_ALU &ALU, CPU_CU &CU) {
   ++CU.PC;
 }
 
+/**
+ * @brief Fetches memory at address stored in MAR and loads it into MBR
+ *
+ * @param ALU Reference to Arithmetic Logic Unit
+ * @param CU Reference to Control Unit
+ *
+ * @details
+ * Loads memory at address stored in MAR and loads it into MBR (MBR <- M[MAR])
+ **/
 void fetchData(CPU_ALU &ALU, CPU_CU &CU) {
   ALU.MBR = MEMORY[CU.MAR]; // get and load memory into MBR
 }
 
+/**
+ * @brief Executes Instruction currently in IR(OPCODE) and MBR(operand)
+ *
+ * @param ALU Reference to Arithmetic Logic Unit
+ * @param CU Reference to Control Unit
+ *
+ **/
 void execution(CPU_ALU &ALU, CPU_CU &CU) {
   switch (CU.IR) {
   case LOAD_M: {
