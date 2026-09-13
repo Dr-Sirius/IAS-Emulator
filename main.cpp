@@ -130,51 +130,61 @@ void fetchData(CPU_ALU &ALU, CPU_CU &CU) {
 void execution(CPU_ALU &ALU, CPU_CU &CU) {
   switch (CU.IR) {
   case LOAD_M: {
+    std::println("LOAD M({})", CU.MAR);
     ALU.AC = ALU.MBR;
     break;
   }
   case LOAD_NEGM: {
     ALU.AC = -ALU.MBR;
+    std::println("LOAD -M({})", CU.MAR);
     break;
   }
   case LOAD_ABSM: {
     ALU.AC = abs(ALU.MBR);
+    std::println("LOAD |M({})|", CU.MAR);
     break;
   }
   case LOAD_NABSM: {
     ALU.AC = -abs(ALU.MBR);
+    std::println("LOAD |M({})|", CU.MAR);
     break;
   }
   case ADD_M: {
+    std::println("ADD M({})", CU.MAR);
     ALU.AC = ALU.AC + ALU.MBR;
     break;
   }
   case SUB_M: {
+    std::println("SUB M({})", CU.MAR);
     ALU.AC = ALU.AC - ALU.MBR;
     break;
   }
   case ADD_MABS: {
+    std::println("ADD |M({})|", CU.MAR);
     ALU.AC = ALU.AC + abs(ALU.MBR);
     break;
   }
   case SUB_MABS: {
+    std::println("SUB |M({})|", CU.MAR);
     ALU.AC = ALU.AC - abs(ALU.MBR);
     break;
   }
   case STOR_M: {
+    std::println("STOR M({})", CU.MAR);
     ALU.MBR = ALU.AC;
     MEMORY[CU.MAR] = ALU.MBR;
     break;
   }
 
   case JUMP_ML: {
+    std::println("JUMP M({},8:19)", CU.MAR);
     CU.PC = CU.MAR;
     right = false;
     std::println("FETCH INSTR JMPL");
     break;
   }
   case JUMP_MR: {
-
+    std::println("JUMP M({},20:39)", CU.MAR);
     CU.PC = CU.MAR;
     right = true;
     std::println("FETCH INSTR JMP");
@@ -182,6 +192,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU) {
     break;
   }
   case JUMP_PML: {
+    std::println("JUMP +M({},8:19)", CU.MAR);
     if (ALU.AC >= 0) {
       CU.PC = CU.MAR;
       right = false;
@@ -189,6 +200,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU) {
     break;
   }
   case JUMP_PMR: {
+    std::println("JUMP +M({},20:39)", CU.MAR);
     if (ALU.AC >= 0) {
       CU.PC = CU.MAR;
       right = true;
@@ -199,22 +211,26 @@ void execution(CPU_ALU &ALU, CPU_CU &CU) {
   }
 
   case STOR_ML: {
-    int8_t op1 = (CU.IBR >> 24) & 0b11111111;
-    int8_t op2 = (CU.IBR >> 8) & 0b11111111;
-    int8_t mem2 = CU.IBR & 0b11111111;
+    std::println("STOR M({},8:19)", CU.MAR);
+    int32_t addr = MEMORY[CU.MAR];
+    int8_t op1 = (addr >> 24) & 0b11111111;
+    int8_t op2 = (addr >> 8) & 0b11111111;
+    int8_t mem2 = addr & 0b11111111;
     MEMORY[CU.MAR] = (op1 << 24) | (ALU.AC << 16) | (op2 << 8) | mem2;
     break;
   }
   case STOR_MR: {
-    int8_t op1 = (CU.IBR >> 24) & 0b11111111;
-    int8_t mem1 = CU.IBR & 0b11111111;
-    int8_t op2 = (CU.IBR >> 8) & 0b11111111;
+    std::println("STOR M({},20:39)", CU.MAR);
+    int32_t addr = MEMORY[CU.MAR];
+    int8_t op1 = (addr >> 24) & 0b11111111;
+    int8_t mem1 = addr & 0b11111111;
+    int8_t op2 = (addr >> 8) & 0b11111111;
     MEMORY[CU.MAR] = (op1 << 24) | (mem1 << 16) | (op2 << 8) | ALU.AC;
-    MEMORY[CU.MAR] = MEMORY[CU.MAR] | ALU.AC;
     break;
   }
 
   case HALT: {
+    std::println("HALT");
     shouldHalt = true;
     break;
   }
@@ -261,7 +277,7 @@ int main() {
   MEMORY[72] = -3;
   MEMORY[73] = -4;
   MEMORY[74] = -5;
-  MEMORY[50] = 800;
+  MEMORY[50] = 80;
 
   INSTRUCTION l3 = {LOAD_M, 84};
   INSTRUCTION r3 = {ADD_MABS, 74};
