@@ -2,12 +2,12 @@
 This is an emulator for the Von Neumann IAS computer. The entire instruction set has been implemented, though not fully tested.
 
 ## Why?
-During one of my college courses going over the IAS, I noticed a severe lack of IAS emulators to test my code out on. So I decided to solve the problem myself. Also because it seemed like a fun project idea
+During one of my college courses going over the IAS, I noticed a severe lack of IAS emulators to test my code out on. So I decided to solve the problem myself. Also because it seemed like a fun project idea.
 
 ## How do you use it?
 currently programs need to be 'hand' loaded into memory. This includes the loading of any numerical values into memory for something like variables and constants. As well as the instructions themselves. 
 
-For example, here is a simple program to add to variables together and store in a third (c = a + b):
+For example, here is a simple program to add two variables together and store in a third (c = a + b):
 ```cpp
 MEMORY[0] = 10; // a
 MEMORY[1] = 20; // b
