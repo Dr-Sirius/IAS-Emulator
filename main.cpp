@@ -495,6 +495,22 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   ++cycleCount;
 }
 
+void program(CPU_ALU &ALU, CPU_CU &CU) {
+
+  MEMORY[0] = 10; // a
+  MEMORY[1] = 20; // b
+
+  INSTRUCTION l3 = {LOAD_M,0};  // first instr on left block of memory addr 3
+  INSTRUCTION r3 = {ADD_M,1};   // second instr on right block of memory addr 3
+  INSTRUCTION l4 = {STOR_M,2};  // first instr on left block of memory addr 4
+
+  loadInstrIntoMEM(3,l3,r3); // loads first and second instrs into memory addr 3
+  loadInstrIntoMEM(4,l4);    // loads first instr and HALT instr into memory addr 4
+
+  CU.PC = 3; // specifies location of first instruction
+
+}
+
 int main()
 {
 
@@ -555,7 +571,8 @@ int main()
   // loadInstrIntoMEM(9, l9, r9);
   // loadInstrIntoMEM(10, l10, r10);
 
-  CU.PC = 1;
+  program(ALU,CU);
+
   while (!shouldHalt)
   {
     if (right)
