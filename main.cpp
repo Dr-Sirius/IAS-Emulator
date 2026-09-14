@@ -2,7 +2,7 @@
 #include <print>
 #include <stack>
 
-#define DEBUG_FETCH_CYLE false
+#define DEBUG_FETCH_CYCLE false
 #define DEBUG_MEMORY true
 #define DEBUG_INSTRS true
 
@@ -170,7 +170,7 @@ void loadInstrIntoMEM(int32_t address, INSTRUCTION instr1 = {HALT},
  **/
 void fetchInstr(CPU_ALU &ALU, CPU_CU &CU)
 {
-#if DEBUG_FETCH_CYLE
+#if DEBUG_FETCH_CYCLE
   std::println("MAR <- PC");
 
   CU.MAR = CU.PC;
