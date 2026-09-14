@@ -1,11 +1,10 @@
 #include <cstdint>
-#include <iostream>
 #include <print>
 #include <stack>
 
 #define DEBUG_FETCH_CYLE false
-#define DEBUG_MEMORY false
-#define DEBUG_INSTRS false
+#define DEBUG_MEMORY true
+#define DEBUG_INSTRS true
 
 using std::stack;
 using std::string;
@@ -25,7 +24,8 @@ bool right = false;
  * `IR`  - Instruction Register
  * `MAR` - Memory Address Register
  */
-struct CPU_CU {
+struct CPU_CU
+{
   int32_t PC;  // program counter
   int32_t IBR; // Instruction Buffer Register
   int32_t IR;  // Instruction Register
@@ -40,32 +40,54 @@ struct CPU_CU {
  * `MQ`  - Multiplier/Quotient
  * `MBR` - Memory Buffer Register
  */
-struct CPU_ALU {
+struct CPU_ALU
+{
   int32_t AC; // Accumulator
   int32_t MQ;
   int32_t MBR; // Memory Buffer Register
 };
 
 enum OPCODES : int8_t {
-  HALT = 0b0,              // 0 HALT
+  HALT = 0b0, // 0  - HALT
+  // LOAD AC INSTRS
   LOAD_M = 0b00000001,     // 1  - load M into AC
   LOAD_NEGM = 0b00000010,  // 2  - load -M into AC
   LOAD_ABSM = 0b00000011,  // 3  - load |M| into AC
   LOAD_NABSM = 0b00000100, // 4  - load -|M| into AC
+
+  // ADD/SUB INSTRS
   ADD_M = 0b00000101,      // 5  - Add M to AC, load result into AC
   SUB_M = 0b00000110,      // 6  - Sub M from AC, load result into AC
   ADD_MABS = 0b00000111,   // 7  - Add |M| to AC, load result into AC
   SUB_MABS = 0b00001000,   // 8  - Sub |M| from AC, load result into AC
-  STOR_M = 0b00100001,     // 33 - Store AC at M
+
+  // LOAD MQ INSTRS
+  LOAD_MQM = 0b00001001,   // 9  - load M into MQ
+  LOAD_MQ = 0b00001010,    // 10 - load MQ into AC
+
+  // Mul/Div INSTRS
+  MUL_M = 0b00001011,      // 11 - Multiply MQ by M, Load upper 32 bits into AC, lower into MQ
+  DIV_M = 0b00001100,      // 12 - Divide MQ by M, load quotient into MQ, Remainder into AC
+
+  // JUMP INSTRS
   JUMP_ML = 0b00001101,    // 13 - Unconditional jump to M left instr
   JUMP_MR = 0b00001110,    // 14 - Unconditional jump to M right instr
   JUMP_PML = 0b00001111,   // 15 - If AC >= 0 jump to M left instr
   JUMP_PMR = 0b00010000,   // 16 - If AC >= 0 jump to M right instr
+
+  // Address Modify INSTRS
   STOR_ML = 0b00010010,    // 18 - Replace M at left instr with AC
   STOR_MR = 0b00010011,    // 19 - Replace M at right instr with AC
+
+  LSH =  0b00010100,       // 20 - Left Hand Shift, Multiply AC by 2
+  RSH =  0b00010101,       // 21 - Right Hand Shift, Divide AC by 2
+
+  // Stor INSTR
+  STOR_M = 0b00100001,     // 33 - Store AC at M
 };
 
-struct INSTRUCTION {
+struct INSTRUCTION
+{
   OPCODES opcode;
   int8_t operand = 0b0;
 };
@@ -83,7 +105,8 @@ struct INSTRUCTION {
  * ```
  *
  **/
-string binaryString(int32_t n) {
+string binaryString(int32_t n)
+{
   // return std::to_string(n);
   n = abs(n);
   string symb = "012";
@@ -121,7 +144,8 @@ string binaryString(int32_t n) {
  *
  **/
 void loadInstrIntoMEM(int32_t address, INSTRUCTION instr1 = {HALT},
-                      INSTRUCTION instr2 = {HALT}) {
+                      INSTRUCTION instr2 = {HALT})
+{
   MEMORY[address] = (instr1.opcode << 24) | (instr1.operand << 16) |
                     (instr2.opcode << 8) | instr2.operand;
 }
@@ -144,7 +168,8 @@ void loadInstrIntoMEM(int32_t address, INSTRUCTION instr1 = {HALT},
  * 5. Places left hand instruction memory address argument into MAR (MAR
  * <-MBR(8:19))
  **/
-void fetchInstr(CPU_ALU &ALU, CPU_CU &CU) {
+void fetchInstr(CPU_ALU &ALU, CPU_CU &CU)
+{
 #if DEBUG_FETCH_CYLE
   std::println("MAR <- PC");
 
@@ -194,7 +219,8 @@ void fetchInstr(CPU_ALU &ALU, CPU_CU &CU) {
  * 2. Loads operand stored in IBR(28:39) into Memory Address Register (MAR <-
  * M[MAR])
  **/
-void instrSetup(CPU_ALU &ALU, CPU_CU &CU) {
+void instrSetup(CPU_ALU &ALU, CPU_CU &CU)
+{
   int8_t op2 = (CU.IBR >> 8) & 0b11111111;
   int8_t mem = CU.IBR & 0b11111111;
   CU.IR = op2;
@@ -222,7 +248,8 @@ void instrSetup(CPU_ALU &ALU, CPU_CU &CU) {
  * @details
  * Loads memory at address stored in MAR and loads it into MBR (MBR <- M[MAR])
  **/
-void fetchData(CPU_ALU &ALU, CPU_CU &CU) {
+void fetchData(CPU_ALU &ALU, CPU_CU &CU)
+{
   ALU.MBR = MEMORY[CU.MAR]; // get and load memory into MBR
 }
 
@@ -233,74 +260,119 @@ void fetchData(CPU_ALU &ALU, CPU_CU &CU) {
  * @param CU Reference to Control Unit
  *
  **/
-void execution(CPU_ALU &ALU, CPU_CU &CU) {
-  switch (CU.IR) {
-  case LOAD_M: {
+void execution(CPU_ALU &ALU, CPU_CU &CU)
+{
+  switch (CU.IR)
+  {
+  case LOAD_M:
+  {
 #if DEBUG_INSTRS
     std::println("LOAD M({})", CU.MAR);
 #endif
     ALU.AC = ALU.MBR;
     break;
   }
-  case LOAD_NEGM: {
+  case LOAD_NEGM:
+  {
     ALU.AC = -ALU.MBR;
 #if DEBUG_INSTRS
     std::println("LOAD -M({})", CU.MAR);
 #endif
     break;
   }
-  case LOAD_ABSM: {
+  case LOAD_ABSM:
+  {
     ALU.AC = abs(ALU.MBR);
 #if DEBUG_INSTRS
     std::println("LOAD |M({})|", CU.MAR);
 #endif
     break;
   }
-  case LOAD_NABSM: {
+  case LOAD_NABSM:
+  {
     ALU.AC = -abs(ALU.MBR);
 #if DEBUG_INSTRS
     std::println("LOAD |M({})|", CU.MAR);
 #endif
     break;
   }
-  case ADD_M: {
+  case ADD_M:
+  {
 #if DEBUG_INSTRS
     std::println("ADD M({})", CU.MAR);
 #endif
     ALU.AC = ALU.AC + ALU.MBR;
     break;
   }
-  case SUB_M: {
+  case SUB_M:
+  {
 #if DEBUG_INSTRS
     std::println("SUB M({})", CU.MAR);
 #endif
     ALU.AC = ALU.AC - ALU.MBR;
     break;
   }
-  case ADD_MABS: {
+  case ADD_MABS:
+  {
 #if DEBUG_INSTRS
     std::println("ADD |M({})|", CU.MAR);
 #endif
     ALU.AC = ALU.AC + abs(ALU.MBR);
     break;
   }
-  case SUB_MABS: {
+  case SUB_MABS:
+  {
 #if DEBUG_INSTRS
     std::println("SUB |M({})|", CU.MAR);
 #endif
     ALU.AC = ALU.AC - abs(ALU.MBR);
     break;
   }
-  case STOR_M: {
+
+  case LOAD_MQM:
+  {
 #if DEBUG_INSTRS
-    std::println("STOR M({})", CU.MAR);
+    std::println("LOAD MQ,M({})", CU.MAR);
 #endif
-    ALU.MBR = ALU.AC;
-    MEMORY[CU.MAR] = ALU.MBR;
+    ALU.MQ = ALU.MBR;
     break;
   }
 
-  case JUMP_ML: {
+  case LOAD_MQ:
+  {
+#if DEBUG_INSTRS
+    std::println("LOAD MQ", CU.MAR);
+#endif
+    ALU.AC = ALU.MQ;
+    break;
+  }
+
+  case MUL_M:
+  {
+#if DEBUG_INSTRS
+    std::println("MUL M({})", CU.MAR);
+#endif
+    int64_t product = static_cast<int64_t>(ALU.MQ) * static_cast<int64_t>(ALU.MBR);
+
+    ALU.AC = static_cast<int32_t>(product >> 32);
+
+    ALU.MQ = static_cast<int32_t>(product & 0xFFFFFFFF);
+
+    break;
+  }
+
+  case DIV_M:
+  {
+#if DEBUG_INSTRS
+    std::println("MUL M({})", CU.MAR);
+#endif
+    ALU.MQ = ALU.MQ / ALU.MBR;
+    ALU.AC = ALU.MQ % ALU.MBR;
+    break;
+  }
+
+  case JUMP_ML:
+  {
 #if DEBUG_INSTRS
     std::println("JUMP M({},8:19)", CU.MAR);
 #endif
@@ -309,7 +381,8 @@ void execution(CPU_ALU &ALU, CPU_CU &CU) {
 
     break;
   }
-  case JUMP_MR: {
+  case JUMP_MR:
+  {
 #if DEBUG_INSTRS
     std::println("JUMP M({},20:39)", CU.MAR);
 #endif
@@ -319,21 +392,26 @@ void execution(CPU_ALU &ALU, CPU_CU &CU) {
     fetchInstr(ALU, CU);
     break;
   }
-  case JUMP_PML: {
+  
+  case JUMP_PML:
+  {
 #if DEBUG_INSTRS
     std::println("JUMP +M({},8:19)", CU.MAR);
 #endif
-    if (ALU.AC >= 0) {
+    if (ALU.AC >= 0)
+    {
       CU.PC = CU.MAR;
       right = false;
     }
     break;
   }
-  case JUMP_PMR: {
+  case JUMP_PMR:
+  {
 #if DEBUG_INSTRS
     std::println("JUMP +M({},20:39)", CU.MAR);
 #endif
-    if (ALU.AC >= 0) {
+    if (ALU.AC >= 0)
+    {
       CU.PC = CU.MAR;
       right = true;
       fetchInstr(ALU, CU);
@@ -341,7 +419,8 @@ void execution(CPU_ALU &ALU, CPU_CU &CU) {
     break;
   }
 
-  case STOR_ML: {
+  case STOR_ML:
+  {
 #if DEBUG_INSTRS
     std::println("STOR M({},8:19)", CU.MAR);
 #endif
@@ -352,7 +431,8 @@ void execution(CPU_ALU &ALU, CPU_CU &CU) {
     MEMORY[CU.MAR] = (op1 << 24) | (ALU.AC << 16) | (op2 << 8) | mem2;
     break;
   }
-  case STOR_MR: {
+  case STOR_MR:
+  {
 #if DEBUG_INSTRS
     std::println("STOR M({},20:39)", CU.MAR);
 #endif
@@ -364,7 +444,36 @@ void execution(CPU_ALU &ALU, CPU_CU &CU) {
     break;
   }
 
-  case HALT: {
+  case LSH:
+  {
+#if DEBUG_INSTRS
+    std::println("LSH");
+#endif
+    ALU.AC = ALU.AC << 1;
+    break;
+  }
+
+  case RSH:
+  {
+#if DEBUG_INSTRS
+    std::println("RSH");
+#endif
+    ALU.AC = ALU.AC >> 1;
+    break;
+  }
+
+   case STOR_M:
+  {
+#if DEBUG_INSTRS
+    std::println("STOR M({})", CU.MAR);
+#endif
+    ALU.MBR = ALU.AC;
+    MEMORY[CU.MAR] = ALU.MBR;
+    break;
+  }
+
+  case HALT:
+  {
 #if DEBUG_INSTRS
     std::println("HALT");
 #endif
@@ -386,7 +495,8 @@ void execution(CPU_ALU &ALU, CPU_CU &CU) {
   ++cycleCount;
 }
 
-int main() {
+int main()
+{
 
   // MEMORY[0] = (SUB_M << 24) | (0b01 << 16) | (ADD_M << 8) | 0b10;
   // baseConverter(MEMORY[0], 2);
@@ -402,56 +512,60 @@ int main() {
   // loadInstrIntoMEM(0b0, {LOAD_M, 0b1100100}, {ADD_M, 0b1100101});
   // loadInstrIntoMEM(0b1, {STOR_M, 0b1100110});
 
-  MEMORY[0b0] = 0b01;     // 1
-  MEMORY[0b01] = 0b01010; // 10
-  MEMORY[0b10] = 0b00100; // 4
-  MEMORY[80] = 1;
-  MEMORY[81] = 2;
-  MEMORY[82] = 3;
-  MEMORY[83] = 4;
-  MEMORY[84] = 5;
+  // MEMORY[0b0] = 0b01;     // 1
+  // MEMORY[0b01] = 0b01010; // 10
+  // MEMORY[0b10] = 0b00100; // 4
+  // MEMORY[80] = 1;
+  // MEMORY[81] = 2;
+  // MEMORY[82] = 3;
+  // MEMORY[83] = 4;
+  // MEMORY[84] = 5;
 
-  MEMORY[70] = -1;
-  MEMORY[71] = -2;
-  MEMORY[72] = -3;
-  MEMORY[73] = -4;
-  MEMORY[74] = -5;
+  // MEMORY[70] = -1;
+  // MEMORY[71] = -2;
+  // MEMORY[72] = -3;
+  // MEMORY[73] = -4;
+  // MEMORY[74] = -5;
 
-  MEMORY[50] = 80;
+  // MEMORY[50] = 80;
 
-  INSTRUCTION l3 = {LOAD_M, 84};
-  INSTRUCTION r3 = {ADD_MABS, 74};
-  INSTRUCTION l4 = {STOR_M, 64};
-  INSTRUCTION r4 = {LOAD_M, 2};
-  INSTRUCTION l5 = {SUB_M, 0};
-  INSTRUCTION r5 = {JUMP_PMR, 6};
-  INSTRUCTION l6 = {HALT};
-  INSTRUCTION r6 = {STOR_M, 2};
-  INSTRUCTION l7 = {LOAD_M, 2};
-  INSTRUCTION r7 = {ADD_M, 50};
-  INSTRUCTION l8 = {STOR_ML, 3};
-  INSTRUCTION r8 = {SUB_M, 1};
-  INSTRUCTION l9 = {STOR_MR, 3};
-  INSTRUCTION r9 = {SUB_M, 1};
-  INSTRUCTION l10 = {STOR_ML, 4};
-  INSTRUCTION r10 = {JUMP_ML, 3};
+  // INSTRUCTION l3 = {LOAD_M, 84};
+  // INSTRUCTION r3 = {ADD_MABS, 74};
+  // INSTRUCTION l4 = {STOR_M, 64};
+  // INSTRUCTION r4 = {LOAD_M, 2};
+  // INSTRUCTION l5 = {SUB_M, 0};
+  // INSTRUCTION r5 = {JUMP_PMR, 6};
+  // INSTRUCTION l6 = {HALT};
+  // INSTRUCTION r6 = {STOR_M, 2};
+  // INSTRUCTION l7 = {LOAD_M, 2};
+  // INSTRUCTION r7 = {ADD_M, 50};
+  // INSTRUCTION l8 = {STOR_ML, 3};
+  // INSTRUCTION r8 = {SUB_M, 1};
+  // INSTRUCTION l9 = {STOR_MR, 3};
+  // INSTRUCTION r9 = {SUB_M, 1};
+  // INSTRUCTION l10 = {STOR_ML, 4};
+  // INSTRUCTION r10 = {JUMP_ML, 3};
 
-  loadInstrIntoMEM(3, l3, r3);
-  loadInstrIntoMEM(4, l4, r4);
-  loadInstrIntoMEM(5, l5, r5);
-  loadInstrIntoMEM(6, l6, r6);
-  loadInstrIntoMEM(7, l7, r7);
-  loadInstrIntoMEM(8, l8, r8);
-  loadInstrIntoMEM(9, l9, r9);
-  loadInstrIntoMEM(10, l10, r10);
+  // loadInstrIntoMEM(3, l3, r3);
+  // loadInstrIntoMEM(4, l4, r4);
+  // loadInstrIntoMEM(5, l5, r5);
+  // loadInstrIntoMEM(6, l6, r6);
+  // loadInstrIntoMEM(7, l7, r7);
+  // loadInstrIntoMEM(8, l8, r8);
+  // loadInstrIntoMEM(9, l9, r9);
+  // loadInstrIntoMEM(10, l10, r10);
 
-  CU.PC = 3;
-  while (!shouldHalt) {
-    if (right) {
+  CU.PC = 1;
+  while (!shouldHalt)
+  {
+    if (right)
+    {
 
       instrSetup(ALU, CU);
       right = false;
-    } else {
+    }
+    else
+    {
 
       fetchInstr(ALU, CU);
       right = true;
@@ -461,11 +575,6 @@ int main() {
 
     execution(ALU, CU);
   }
-  std::println("MEM 64 {}", MEMORY[64]);
-  std::println("MEM 63 {}", MEMORY[63]);
-  std::println("MEM 62 {}", MEMORY[62]);
-  std::println("MEM 61 {}", MEMORY[61]);
-  std::println("MEM 60 {}", MEMORY[60]);
 
   return 0;
 }
