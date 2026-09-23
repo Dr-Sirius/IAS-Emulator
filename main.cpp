@@ -515,9 +515,9 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
 std::vector<int64_t> readFile(const char* filename) {
     std::ifstream file(filename, std::ios::binary);
 
-    auto fileSize = std::filesystem::file_size(filename);
+    const auto fileSize = std::filesystem::file_size(filename);
 
-    std::vector<int64_t> fileData(fileSize);
+    std::vector<int64_t> fileData(fileSize/ sizeof(uint64_t));
     file.read((char*) &fileData[0], fileSize);
     return fileData;
 }
@@ -526,8 +526,10 @@ int8_t loadFileDataIntoMem(std::vector<int64_t> data, bool getPC = false) {
 
   int8_t PC;
   for (size_t i = 0; i < data.size(); ++i) {
+
     int8_t addr = (data[i] >> 32) & 0b11111111;
     int32_t mem =  static_cast<int32_t>(data[i]);
+    
     MEMORY[addr] = mem;
     if (getPC && i == 0) {
       PC = addr;
@@ -576,63 +578,9 @@ int main(int argc, char* argv[])
     return 1;
   }
   
-
-  // MEMORY[0] = (SUB_M << 24) | (0b01 << 16) | (ADD_M << 8) | 0b10;
-  // baseConverter(MEMORY[0], 2);
-  // int8_t op2 = (MEMORY[0] >> 8) & 0b11111111;
-  // int8_t mem = MEMORY[0] & 0b11111111;
-  // int32_t test = (op2 << 8) | mem;
-  // baseConverter(test, 2);
   CPU_ALU ALU = {0};
   CPU_CU CU = {0};
-  // MEMORY[100] = 0b1010;
-  // MEMORY[101] = 0b10100;
-
-  // loadInstrIntoMEM(0b0, {LOAD_M, 0b1100100}, {ADD_M, 0b1100101});
-  // loadInstrIntoMEM(0b1, {STOR_M, 0b1100110});
-
-  // MEMORY[0b0] = 0b01;     // 1
-  // MEMORY[0b01] = 0b01010; // 10
-  // MEMORY[0b10] = 0b00100; // 4
-  // MEMORY[80] = 1;
-  // MEMORY[81] = 2;
-  // MEMORY[82] = 3;
-  // MEMORY[83] = 4;
-  // MEMORY[84] = 5;
-
-  // MEMORY[70] = -1;
-  // MEMORY[71] = -2;
-  // MEMORY[72] = -3;
-  // MEMORY[73] = -4;
-  // MEMORY[74] = -5;
-
-  // MEMORY[50] = 80;
-
-  // INSTRUCTION l3 = {LOAD_M, 84};
-  // INSTRUCTION r3 = {ADD_MABS, 74};
-  // INSTRUCTION l4 = {STOR_M, 64};
-  // INSTRUCTION r4 = {LOAD_M, 2};
-  // INSTRUCTION l5 = {SUB_M, 0};
-  // INSTRUCTION r5 = {JUMP_PMR, 6};
-  // INSTRUCTION l6 = {HALT};
-  // INSTRUCTION r6 = {STOR_M, 2};
-  // INSTRUCTION l7 = {LOAD_M, 2};
-  // INSTRUCTION r7 = {ADD_M, 50};
-  // INSTRUCTION l8 = {STOR_ML, 3};
-  // INSTRUCTION r8 = {SUB_M, 1};
-  // INSTRUCTION l9 = {STOR_MR, 3};
-  // INSTRUCTION r9 = {SUB_M, 1};
-  // INSTRUCTION l10 = {STOR_ML, 4};
-  // INSTRUCTION r10 = {JUMP_ML, 3};
-
-  // loadInstrIntoMEM(3, l3, r3);
-  // loadInstrIntoMEM(4, l4, r4);
-  // loadInstrIntoMEM(5, l5, r5);
-  // loadInstrIntoMEM(6, l6, r6);
-  // loadInstrIntoMEM(7, l7, r7);
-  // loadInstrIntoMEM(8, l8, r8);
-  // loadInstrIntoMEM(9, l9, r9);
-  // loadInstrIntoMEM(10, l10, r10);
+ 
 
   if (!std::filesystem::exists(argv[1])) {
     std::println("file \"{}\" does not exist",argv[1]);
@@ -655,7 +603,6 @@ int main(int argc, char* argv[])
   
   while (!shouldHalt)
   {
-    break;
     if (right)
     {
 
@@ -676,8 +623,9 @@ int main(int argc, char* argv[])
 
   #if DEBUG_MEM_DUMP
 
+  std::println();
   for (size_t i = 0; i < MEMMAX; ++i) {
-    if (MEMORY[i] == 0) continue;
+    if (MEMORY[i] == 0 && i != 0) continue;
     #if DEBUG_MEM_DUMP_BIN
     std::println("ADDR {} - {}",binaryString(i),binaryString(MEMORY[i]));
     #else
