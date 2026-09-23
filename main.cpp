@@ -9,15 +9,19 @@
 #define DEBUG_FETCH_CYCLE false
 #define DEBUG_MEMORY true
 #define DEBUG_INSTRS true
+#define DEBUG_MEM_DUMP true
+#define DEBUG_MEM_DUMP_BIN false
+#define MEMMAX 999
 
 using std::stack;
 using std::string;
 
-int32_t MEMORY[999];
+int32_t MEMORY[MEMMAX];
 uint cycleCount = 0;
 
 bool shouldHalt = false;
 bool right = false;
+bool fileNotExist = false;
 
 /**
  * Struct Representing IAS Control Unit
@@ -556,19 +560,19 @@ int main(int argc, char* argv[])
 
   if (argc == 1) {
     std::println("ERROR: no input files");
-    std::println("Expected: ias <memory map>.im <instr map>.ii");
+    std::println("Expected: ias <IAS memory map>.imm <IAS instr map>.iim");
     return 1;
   }
 
   if (argc == 2) {
     std::println("ERROR: missing input file");
-    std::println("Expected: ias <memory map>.im <instr map>.ii");
+    std::println("Expected: ias <IAS memory map>.imm <IAS instr map>.iim");
     return 1;
   }
 
   if (argc > 3) {
     std::println("ERROR: too many input files");
-    std::println("Expected: ias <memory map>.im <instr map>.ii");
+    std::println("Expected: ias <IAS memory map>.imm <IAS instr map>.iim");
     return 1;
   }
   
@@ -630,11 +634,28 @@ int main(int argc, char* argv[])
   // loadInstrIntoMEM(9, l9, r9);
   // loadInstrIntoMEM(10, l10, r10);
 
+  if (!std::filesystem::exists(argv[1])) {
+    std::println("file \"{}\" does not exist",argv[1]);
+    fileNotExist = true;
+  }
+  if (!std::filesystem::exists(argv[2])) {
+    std::println("file \"{}\" does not exist",argv[2]);
+    fileNotExist = true;
+  }
+
+  if (fileNotExist) {
+    std::println("Emulation stopped ERROR: file(s) do not exist");
+    return 1;
+  }
+
   loadFileDataIntoMem(readFile(argv[1]));
   CU.PC = loadFileDataIntoMem(readFile(argv[2]),true);
 
+  
+  
   while (!shouldHalt)
   {
+    break;
     if (right)
     {
 
@@ -652,6 +673,19 @@ int main(int argc, char* argv[])
 
     execution(ALU, CU);
   }
+
+  #if DEBUG_MEM_DUMP
+
+  for (size_t i = 0; i < MEMMAX; ++i) {
+    if (MEMORY[i] == 0) continue;
+    #if DEBUG_MEM_DUMP_BIN
+    std::println("ADDR {} - {}",binaryString(i),binaryString(MEMORY[i]));
+    #else
+    std::println("ADDR {} - {}",i,MEMORY[i]);
+
+    #endif
+  }
+  #endif
 
   return 0;
 }
