@@ -1,6 +1,10 @@
 #include <cstdint>
 #include <print>
 #include <stack>
+#include <fstream>
+#include <iostream>
+#include <filesystem>
+#include <vector>
 
 #define DEBUG_FETCH_CYCLE false
 #define DEBUG_MEMORY true
@@ -109,15 +113,24 @@ string binaryString(int32_t n)
 {
   // return std::to_string(n);
   n = abs(n);
-  string symb = "012";
-  stack<char> s;
-  string bin = "";
-  for (; n / 2 > 0; n /= 2)
+  std::string symb = "012";
+  std::stack<char> s;
+  std::string bin = "";
+  int space = 0;
+  for (; n / 2 > 0; n /= 2) {
+    if (space == 4) {
+        s.push(' ');
+        space = 0;
+    }
+    ++space;
     s.push(symb[n % 2]);
+      
+  }
   s.push(symb[n % 2]);
   for (; !s.empty(); s.pop())
     bin += s.top();
   return bin;
+
 }
 
 /**
@@ -495,6 +508,32 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   ++cycleCount;
 }
 
+std::vector<int64_t> readFile(const char* filename) {
+    std::ifstream file(filename, std::ios::binary);
+
+    auto fileSize = std::filesystem::file_size(filename);
+
+    std::vector<int64_t> fileData(fileSize);
+    file.read((char*) &fileData[0], fileSize);
+    return fileData;
+}
+
+int8_t loadFileDataIntoMem(std::vector<int64_t> data, bool getPC = false) {
+
+  int8_t PC;
+  for (size_t i = 0; i < data.size(); ++i) {
+    int8_t addr = (data[i] >> 32) & 0b11111111;
+    int32_t mem =  static_cast<int32_t>(data[i]);
+    MEMORY[addr] = mem;
+    if (getPC && i == 0) {
+      PC = addr;
+    } 
+    if (data[i] == 0 && i != 0) break;
+  }
+  return PC;
+
+}
+
 void program(CPU_ALU &ALU, CPU_CU &CU) {
 
   MEMORY[0] = 10; // a
@@ -511,8 +550,28 @@ void program(CPU_ALU &ALU, CPU_CU &CU) {
 
 }
 
-int main()
+int main(int argc, char* argv[]) 
 {
+
+
+  if (argc == 1) {
+    std::println("ERROR: no input files");
+    std::println("Expected: ias <memory map>.im <instr map>.ii");
+    return 1;
+  }
+
+  if (argc == 2) {
+    std::println("ERROR: missing input file");
+    std::println("Expected: ias <memory map>.im <instr map>.ii");
+    return 1;
+  }
+
+  if (argc > 3) {
+    std::println("ERROR: too many input files");
+    std::println("Expected: ias <memory map>.im <instr map>.ii");
+    return 1;
+  }
+  
 
   // MEMORY[0] = (SUB_M << 24) | (0b01 << 16) | (ADD_M << 8) | 0b10;
   // baseConverter(MEMORY[0], 2);
@@ -571,7 +630,8 @@ int main()
   // loadInstrIntoMEM(9, l9, r9);
   // loadInstrIntoMEM(10, l10, r10);
 
-  program(ALU,CU);
+  loadFileDataIntoMem(readFile(argv[1]));
+  CU.PC = loadFileDataIntoMem(readFile(argv[2]),true);
 
   while (!shouldHalt)
   {
