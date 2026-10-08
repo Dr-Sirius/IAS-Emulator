@@ -214,8 +214,8 @@ void fetchInstr(CPU_ALU &ALU, CPU_CU &CU)
 #endif
 #if DEBUG_MEMORY
   std::println("CYCLE |{}|", cycleCount);
-  std::println("PC| {} || AC | {} |", binaryString(CU.PC),
-               binaryString(ALU.AC));
+  std::println("PC| {} || AC | {} || MQ {}", binaryString(CU.PC),
+               binaryString(ALU.AC),binaryString(ALU.MQ));
   std::println("MAR| {} || MBR | {} |", binaryString(CU.MAR),
                binaryString(ALU.MBR));
   std::println("IBR| {} || IR | {} |", binaryString(CU.IBR),
@@ -244,8 +244,8 @@ void instrSetup(CPU_ALU &ALU, CPU_CU &CU)
   CU.MAR = mem;
 #if DEBUG_MEMORY
   std::println("CYCLE |{}|", cycleCount);
-  std::println("PC| {} || AC | {} |", binaryString(CU.PC),
-               binaryString(ALU.AC));
+  std::println("PC| {} || AC | {} || MQ {}", binaryString(CU.PC),
+               binaryString(ALU.AC),binaryString(ALU.MQ));
   std::println("MAR| {} || MBR | {} |", binaryString(CU.MAR),
                binaryString(ALU.MBR));
   std::println("IBR| {} || IR | {} |", binaryString(CU.IBR),
@@ -501,8 +501,8 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
 
 #if DEBUG_MEMORY
   std::println("CYCLE |{}|", cycleCount);
-  std::println("PC| {} || AC | {} |", binaryString(CU.PC),
-               binaryString(ALU.AC));
+  std::println("PC| {} || AC | {} || MQ {}", binaryString(CU.PC),
+               binaryString(ALU.AC),binaryString(ALU.MQ));
   std::println("MAR| {} || MBR | {} |", binaryString(CU.MAR),
                binaryString(ALU.MBR));
   std::println("IBR| {} || IR | {} |", binaryString(CU.IBR),
