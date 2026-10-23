@@ -14,7 +14,7 @@ The assembler reads `.is` files and outputs the `.imm` & `.iim`
 Examples programs can be found [here](https://github.com/Dr-Sirius/IAS-Assembler/tree/main/examples)
 
 ### Running A Program
-Once the required files have been obtained, a program can be loaded an ran simply by doing
+Once the required files have been obtained, a program can be loaded and ran simply by calling
 ```
 ./main <source-file>.imm <source-file>.iim
 ```
