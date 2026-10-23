@@ -5,6 +5,7 @@
 #include <iostream>
 #include <filesystem>
 #include <vector>
+#include <bitset>
 
 #define DEBUG_FETCH_CYCLE false
 #define DEBUG_MEMORY true
@@ -109,7 +110,7 @@ struct INSTRUCTION
  *
  * #### Usage:
  * ```cpp
- * std::string bin = binaryString(11); // returns "1011"
+ * std::string bin = binString(11); // returns "1011"
  * ```
  *
  **/
@@ -133,8 +134,32 @@ string binaryString(int32_t n)
   s.push(symb[n % 2]);
   for (; !s.empty(); s.pop())
     bin += s.top();
+  
   return bin;
 
+}
+
+string binString(int32_t n) {
+
+  std::bitset<32> num(n);
+  string bin = num.to_string();
+  string nBin = "";
+  unsigned short c = 0;
+  
+  for (auto it = bin.begin();it != bin.end(); ++it) {
+    if (c == 4) {
+      nBin += " ";
+      c = 0;
+    }
+    
+    nBin += *it;
+    
+    ++c;
+    
+  }  
+  
+  
+  return nBin; 
 }
 
 /**
@@ -214,12 +239,12 @@ void fetchInstr(CPU_ALU &ALU, CPU_CU &CU)
 #endif
 #if DEBUG_MEMORY
   std::println("CYCLE |{}|", cycleCount);
-  std::println("PC| {} || AC | {} || MQ {}", binaryString(CU.PC),
-               binaryString(ALU.AC),binaryString(ALU.MQ));
-  std::println("MAR| {} || MBR | {} |", binaryString(CU.MAR),
-               binaryString(ALU.MBR));
-  std::println("IBR| {} || IR | {} |", binaryString(CU.IBR),
-               binaryString(CU.IR));
+  std::println("PC| {} || AC | {} || MQ {}", binString(CU.PC),
+               binString(ALU.AC),binString(ALU.MQ));
+  std::println("MAR| {} || MBR | {} |", binString(CU.MAR),
+               binString(ALU.MBR));
+  std::println("IBR| {} || IR | {} |", binString(CU.IBR),
+               binString(CU.IR));
   std::println();
 #endif
   ++cycleCount;
@@ -244,12 +269,12 @@ void instrSetup(CPU_ALU &ALU, CPU_CU &CU)
   CU.MAR = mem;
 #if DEBUG_MEMORY
   std::println("CYCLE |{}|", cycleCount);
-  std::println("PC| {} || AC | {} || MQ {}", binaryString(CU.PC),
-               binaryString(ALU.AC),binaryString(ALU.MQ));
-  std::println("MAR| {} || MBR | {} |", binaryString(CU.MAR),
-               binaryString(ALU.MBR));
-  std::println("IBR| {} || IR | {} |", binaryString(CU.IBR),
-               binaryString(CU.IR));
+  std::println("PC| {} || AC | {} || MQ {}", binString(CU.PC),
+               binString(ALU.AC),binString(ALU.MQ));
+  std::println("MAR| {} || MBR | {} |", binString(CU.MAR),
+               binString(ALU.MBR));
+  std::println("IBR| {} || IR | {} |", binString(CU.IBR),
+               binString(CU.IR));
   std::println();
 #endif
   ++cycleCount;
@@ -500,13 +525,18 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   }
 
 #if DEBUG_MEMORY
-  std::println("CYCLE |{}|", cycleCount);
-  std::println("PC| {} || AC | {} || MQ {}", binaryString(CU.PC),
-               binaryString(ALU.AC),binaryString(ALU.MQ));
-  std::println("MAR| {} || MBR | {} |", binaryString(CU.MAR),
-               binaryString(ALU.MBR));
-  std::println("IBR| {} || IR | {} |", binaryString(CU.IBR),
-               binaryString(CU.IR));
+  std::bitset<32> x(ALU.MQ);
+  std::println(
+    "CYCLE: {:>5}\nPC: {:>5}\nAC: {:>5}\nMQ: {:>5}", 
+  cycleCount,
+  binString(CU.PC),
+  binString(ALU.AC),
+  binString(ALU.MQ)
+  );
+  std::println("MAR| {} || MBR | {} |", binString(CU.MAR),
+               binString(ALU.MBR));
+  std::println("IBR| {} || IR | {} |", binString(CU.IBR),
+               binString(CU.IR));
   std::println();
 #endif
   ++cycleCount;
@@ -627,7 +657,7 @@ int main(int argc, char* argv[])
   for (size_t i = 0; i < MEMMAX; ++i) {
     if (MEMORY[i] == 0 && i != 0) continue;
     #if DEBUG_MEM_DUMP_BIN
-    std::println("ADDR {} - {}",binaryString(i),binaryString(MEMORY[i]));
+    std::println("ADDR {} - {}",binString(i),binString(MEMORY[i]));
     #else
     std::println("ADDR {} - {}",i,MEMORY[i]);
 

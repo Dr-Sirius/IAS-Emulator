@@ -1,3 +1,5 @@
 main
 *.imm
 *.iim
+.clangd
+
