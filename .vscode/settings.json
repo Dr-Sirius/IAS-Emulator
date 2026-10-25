@@ -1,3 +1,6 @@
 {
-    "C_Cpp.default.cppStandard": "c++23"
+    "C_Cpp.default.cppStandard": "c++23",
+    "C_Cpp.formatting": "disabled",
+    "editor.formatOnSave": false,
+    "clang-format.style": "none"
 }

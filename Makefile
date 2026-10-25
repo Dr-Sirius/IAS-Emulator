@@ -1,3 +1,4 @@
+PROGRAM := main
 CXX := g++
 CXXFLAGS := -std=c++23
 
@@ -9,9 +10,10 @@ main:
 
 main.cpp:
 
-run: ./main
-
 all : main run
 
 clean :
 	rm -f main.o 
+
+run:
+	./${PROGRAM}
