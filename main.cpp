@@ -238,14 +238,23 @@ void fetchInstr(CPU_ALU &ALU, CPU_CU &CU)
   CU.MAR = (ALU.MBR >> 16) & 0b11111111; // load memory addr into MAR
 #endif
 #if DEBUG_MEMORY
-  std::println("CYCLE |{}|", cycleCount);
-  std::println("PC| {} || AC | {} || MQ {}", binString(CU.PC),
-               binString(ALU.AC),binString(ALU.MQ));
-  std::println("MAR| {} || MBR | {} |", binString(CU.MAR),
-               binString(ALU.MBR));
-  std::println("IBR| {} || IR | {} |", binString(CU.IBR),
-               binString(CU.IR));
-  std::println();
+  std::println("{:-^100}","FETCH CYCLE ");
+  std::println(
+    "CYCLE: {:>6}\nCU->\n PC: {:>44}\n MAR: {:>43}\n IBR: {:>43}\n IR: {:>44}", 
+  cycleCount,
+  binString(CU.PC),
+  binString(CU.MAR),
+  binString(CU.IBR),
+  binString(CU.IR)
+  );
+  
+  std::println(
+    "ALU->\n AC: {:>44}\n MQ: {:>44}\n MBR: {:>43}\n",
+    binString(ALU.AC),
+    binString(ALU.MQ),
+    binString(ALU.MBR)
+    );
+    
 #endif
   ++cycleCount;
 }
@@ -268,14 +277,23 @@ void instrSetup(CPU_ALU &ALU, CPU_CU &CU)
   CU.IR = op2;
   CU.MAR = mem;
 #if DEBUG_MEMORY
-  std::println("CYCLE |{}|", cycleCount);
-  std::println("PC| {} || AC | {} || MQ {}", binString(CU.PC),
-               binString(ALU.AC),binString(ALU.MQ));
-  std::println("MAR| {} || MBR | {} |", binString(CU.MAR),
-               binString(ALU.MBR));
-  std::println("IBR| {} || IR | {} |", binString(CU.IBR),
-               binString(CU.IR));
-  std::println();
+  std::println("{:-^100}","FETCH CYCLE ");
+  std::println(
+    "CYCLE: {:>6}\nCU->\n PC: {:>44}\n MAR: {:>43}\n IBR: {:>43}\n IR: {:>44}", 
+  cycleCount,
+  binString(CU.PC),
+  binString(CU.MAR),
+  binString(CU.IBR),
+  binString(CU.IR)
+  );
+  
+  std::println(
+    "ALU->\n AC: {:>44}\n MQ: {:>44}\n MBR: {:>43}\n",
+    binString(ALU.AC),
+    binString(ALU.MQ),
+    binString(ALU.MBR)
+    );
+  
 #endif
   ++cycleCount;
   ++CU.PC;
@@ -304,12 +322,13 @@ void fetchData(CPU_ALU &ALU, CPU_CU &CU)
  **/
 void execution(CPU_ALU &ALU, CPU_CU &CU)
 {
+  string cycleExec;
   switch (CU.IR)
   {
   case LOAD_M:
   {
 #if DEBUG_INSTRS
-    std::println("LOAD M({})", CU.MAR);
+    cycleExec = std::format("LOAD M({})", CU.MAR);
 #endif
     ALU.AC = ALU.MBR;
     break;
@@ -318,7 +337,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   {
     ALU.AC = -ALU.MBR;
 #if DEBUG_INSTRS
-    std::println("LOAD -M({})", CU.MAR);
+    cycleExec = std::format("LOAD -M({})", CU.MAR);
 #endif
     break;
   }
@@ -326,7 +345,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   {
     ALU.AC = abs(ALU.MBR);
 #if DEBUG_INSTRS
-    std::println("LOAD |M({})|", CU.MAR);
+    cycleExec = std::format("LOAD |M({})|", CU.MAR);
 #endif
     break;
   }
@@ -334,14 +353,14 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   {
     ALU.AC = -abs(ALU.MBR);
 #if DEBUG_INSTRS
-    std::println("LOAD |M({})|", CU.MAR);
+    cycleExec = std::format("LOAD |M({})|", CU.MAR);
 #endif
     break;
   }
   case ADD_M:
   {
 #if DEBUG_INSTRS
-    std::println("ADD M({})", CU.MAR);
+    cycleExec = std::format("ADD M({})", CU.MAR);
 #endif
     ALU.AC = ALU.AC + ALU.MBR;
     break;
@@ -349,7 +368,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case SUB_M:
   {
 #if DEBUG_INSTRS
-    std::println("SUB M({})", CU.MAR);
+    cycleExec = std::format("SUB M({})", CU.MAR);
 #endif
     ALU.AC = ALU.AC - ALU.MBR;
     break;
@@ -357,7 +376,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case ADD_MABS:
   {
 #if DEBUG_INSTRS
-    std::println("ADD |M({})|", CU.MAR);
+    cycleExec = std::format("ADD |M({})|", CU.MAR);
 #endif
     ALU.AC = ALU.AC + abs(ALU.MBR);
     break;
@@ -365,7 +384,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case SUB_MABS:
   {
 #if DEBUG_INSTRS
-    std::println("SUB |M({})|", CU.MAR);
+    cycleExec = std::format("SUB |M({})|", CU.MAR);
 #endif
     ALU.AC = ALU.AC - abs(ALU.MBR);
     break;
@@ -374,7 +393,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case LOAD_MQM:
   {
 #if DEBUG_INSTRS
-    std::println("LOAD MQ,M({})", CU.MAR);
+    cycleExec = std::format("LOAD MQ,M({})", CU.MAR);
 #endif
     ALU.MQ = ALU.MBR;
     break;
@@ -383,7 +402,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case LOAD_MQ:
   {
 #if DEBUG_INSTRS
-    std::println("LOAD MQ", CU.MAR);
+    cycleExec = std::format("LOAD MQ", CU.MAR);
 #endif
     ALU.AC = ALU.MQ;
     break;
@@ -392,7 +411,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case MUL_M:
   {
 #if DEBUG_INSTRS
-    std::println("MUL M({})", CU.MAR);
+    cycleExec = std::format("MUL M({})", CU.MAR);
 #endif
     int64_t product = static_cast<int64_t>(ALU.MQ) * static_cast<int64_t>(ALU.MBR);
 
@@ -406,7 +425,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case DIV_M:
   {
 #if DEBUG_INSTRS
-    std::println("MUL M({})", CU.MAR);
+    cycleExec = std::format("MUL M({})", CU.MAR);
 #endif
     ALU.MQ = ALU.MQ / ALU.MBR;
     ALU.AC = ALU.MQ % ALU.MBR;
@@ -416,7 +435,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case JUMP_ML:
   {
 #if DEBUG_INSTRS
-    std::println("JUMP M({},8:19)", CU.MAR);
+    cycleExec = std::format("JUMP M({},8:19)", CU.MAR);
 #endif
     CU.PC = CU.MAR;
     right = false;
@@ -426,7 +445,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case JUMP_MR:
   {
 #if DEBUG_INSTRS
-    std::println("JUMP M({},20:39)", CU.MAR);
+    cycleExec = std::format("JUMP M({},20:39)", CU.MAR);
 #endif
     CU.PC = CU.MAR;
     right = true;
@@ -438,7 +457,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case JUMP_PML:
   {
 #if DEBUG_INSTRS
-    std::println("JUMP +M({},8:19)", CU.MAR);
+    cycleExec = std::format("JUMP +M({},8:19)", CU.MAR);
 #endif
     if (ALU.AC >= 0)
     {
@@ -450,7 +469,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case JUMP_PMR:
   {
 #if DEBUG_INSTRS
-    std::println("JUMP +M({},20:39)", CU.MAR);
+    cycleExec = std::format("JUMP +M({},20:39)", CU.MAR);
 #endif
     if (ALU.AC >= 0)
     {
@@ -464,7 +483,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case STOR_ML:
   {
 #if DEBUG_INSTRS
-    std::println("STOR M({},8:19)", CU.MAR);
+    cycleExec = std::format("STOR M({},8:19)", CU.MAR);
 #endif
     int32_t addr = MEMORY[CU.MAR];
     int8_t op1 = (addr >> 24) & 0b11111111;
@@ -476,7 +495,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case STOR_MR:
   {
 #if DEBUG_INSTRS
-    std::println("STOR M({},20:39)", CU.MAR);
+    cycleExec = std::format("STOR M({},20:39)", CU.MAR);
 #endif
     int32_t addr = MEMORY[CU.MAR];
     int8_t op1 = (addr >> 24) & 0b11111111;
@@ -489,7 +508,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case LSH:
   {
 #if DEBUG_INSTRS
-    std::println("LSH");
+    cycleExec = std::format("LSH");
 #endif
     ALU.AC = ALU.AC << 1;
     break;
@@ -498,7 +517,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case RSH:
   {
 #if DEBUG_INSTRS
-    std::println("RSH");
+    cycleExec = std::format("RSH");
 #endif
     ALU.AC = ALU.AC >> 1;
     break;
@@ -507,7 +526,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
    case STOR_M:
   {
 #if DEBUG_INSTRS
-    std::println("STOR M({})", CU.MAR);
+    cycleExec = std::format("STOR M({})", CU.MAR);
 #endif
     ALU.MBR = ALU.AC;
     MEMORY[CU.MAR] = ALU.MBR;
@@ -517,7 +536,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   case HALT:
   {
 #if DEBUG_INSTRS
-    std::println("HALT");
+    cycleExec = std::format("HALT");
 #endif
     shouldHalt = true;
     break;
@@ -525,19 +544,24 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   }
 
 #if DEBUG_MEMORY
-  std::bitset<32> x(ALU.MQ);
+  std::println("{:-^100}","EXECUTE CYCLE ");
   std::println(
-    "CYCLE: {:>5}\nPC: {:>5}\nAC: {:>5}\nMQ: {:>5}", 
+    "INSTR: {:>7}\nCYCLE: {:>6}\nCU->\n PC: {:>44}\n MAR: {:>43}\n IBR: {:>43}\n IR: {:>44}",
+    cycleExec, 
   cycleCount,
   binString(CU.PC),
-  binString(ALU.AC),
-  binString(ALU.MQ)
+  binString(CU.MAR),
+  binString(CU.IBR),
+  binString(CU.IR)
   );
-  std::println("MAR| {} || MBR | {} |", binString(CU.MAR),
-               binString(ALU.MBR));
-  std::println("IBR| {} || IR | {} |", binString(CU.IBR),
-               binString(CU.IR));
-  std::println();
+  
+  std::println(
+    "ALU->\n AC: {:>44}\n MQ: {:>44}\n MBR: {:>43}\n",
+    binString(ALU.AC),
+    binString(ALU.MQ),
+    binString(ALU.MBR)
+    );
+  
 #endif
   ++cycleCount;
 }
@@ -653,13 +677,13 @@ int main(int argc, char* argv[])
 
   #if DEBUG_MEM_DUMP
 
-  std::println();
+  std::println("{:-^100}","MEMORY DUMP ");
   for (size_t i = 0; i < MEMMAX; ++i) {
     if (MEMORY[i] == 0 && i != 0) continue;
     #if DEBUG_MEM_DUMP_BIN
     std::println("ADDR {} - {}",binString(i),binString(MEMORY[i]));
     #else
-    std::println("ADDR {} - {}",i,MEMORY[i]);
+    std::println("ADDR {}:\n INT VAL -> {}\n BIN VAL -> {}\n",i,MEMORY[i],binString(MEMORY[i]));
 
     #endif
   }
