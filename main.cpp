@@ -238,7 +238,7 @@ void fetchInstr(CPU_ALU &ALU, CPU_CU &CU)
   CU.MAR = (ALU.MBR >> 16) & 0b11111111; // load memory addr into MAR
 #endif
 #if DEBUG_MEMORY
-  std::println("{:-^100}","FETCH CYCLE ");
+  std::println("{:-^100}","FETCH CYCLE");
   std::println(
     "CYCLE: {:>6}\nCU->\n PC: {:>44}\n MAR: {:>43}\n IBR: {:>43}\n IR: {:>44}", 
   cycleCount,
@@ -277,7 +277,7 @@ void instrSetup(CPU_ALU &ALU, CPU_CU &CU)
   CU.IR = op2;
   CU.MAR = mem;
 #if DEBUG_MEMORY
-  std::println("{:-^100}","FETCH CYCLE ");
+  std::println("{:-^100}","FETCH CYCLE");
   std::println(
     "CYCLE: {:>6}\nCU->\n PC: {:>44}\n MAR: {:>43}\n IBR: {:>43}\n IR: {:>44}", 
   cycleCount,
@@ -544,7 +544,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   }
 
 #if DEBUG_MEMORY
-  std::println("{:-^100}","EXECUTE CYCLE ");
+  std::println("{:-^100}","EXECUTE CYCLE");
   std::println(
     "INSTR: {:>7}\nCYCLE: {:>6}\nCU->\n PC: {:>44}\n MAR: {:>43}\n IBR: {:>43}\n IR: {:>44}",
     cycleExec, 
