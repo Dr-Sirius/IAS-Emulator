@@ -21,8 +21,12 @@ Once the required files have been obtained, a program can be loaded and ran simp
 
 Currently the program will output the values stored in the registers at the end of each cycle, as well as the values stored in memory
 
+## Requirments
+- C++23 compatable compiler
+
 ## Building
 The program can be built by calling
 ```
 make
 ```
+By default, the emulator is built with gcc

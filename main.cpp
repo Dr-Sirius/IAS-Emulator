@@ -139,6 +139,18 @@ string binaryString(int32_t n)
 
 }
 
+/**
+ * @brief Converts number into binary string representation
+ *
+ *
+ * @param n Number to be converted to binary string
+ * @return 32-bit binary string representation of n
+ *
+ * #### Usage:
+ * ```cpp
+ * std::string bin = binString(11); // returns "0000 0000 0000 1011"
+ * ```
+ **/
 string binString(int32_t n) {
 
   std::bitset<32> num(n);
