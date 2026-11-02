@@ -593,7 +593,7 @@ int8_t loadFileDataIntoMem(std::vector<int64_t> data, bool getPC = false) {
   int8_t PC;
   for (size_t i = 0; i < data.size(); ++i) {
 
-    int8_t addr = (data[i] >> 32) & 0b11111111;
+    int32_t addr = (data[i] >> 32) & 0b11111111;
     int32_t mem =  static_cast<int32_t>(data[i]);
     
     MEMORY[addr] = mem;
