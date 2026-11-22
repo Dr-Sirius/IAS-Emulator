@@ -1,11 +1,10 @@
+#include <bitset>
 #include <cstdint>
-#include <print>
-#include <stack>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <filesystem>
+#include <print>
 #include <vector>
-#include <bitset>
 
 #define DEBUG_FETCH_CYCLE false
 #define DEBUG_MEMORY true
@@ -14,10 +13,54 @@
 #define DEBUG_MEM_DUMP_BIN false
 #define MEMMAX 999
 
-using std::stack;
 using std::string;
 
-int32_t MEMORY[MEMMAX];
+struct int40_t {
+private:
+  int64_t val;
+
+  int64_t normalize(int64_t v) { return (v << 24) >> 24; }
+
+public:
+  int40_t(int64_t num) : val(normalize(num)) {}
+
+  int40_t operator+(const int40_t &rhs) { return int40_t(val + rhs.val); }
+  int40_t operator-(const int40_t &rhs) { return int40_t(val - rhs.val); }
+  int40_t operator*(const int40_t &rhs) { return int40_t(val * rhs.val); }
+  int40_t operator/(const int40_t &rhs) { return int40_t(val / rhs.val); }
+
+  int40_t &operator+=(const int40_t &rhs) {
+    val += rhs.val;
+    val = normalize(val);
+    return *this;
+  }
+
+  int40_t &operator-=(const int40_t &rhs) {
+    val -= rhs.val;
+    val = normalize(val);
+    return *this;
+  }
+
+  int40_t operator-() { return int40_t(-val); }
+
+  auto operator<=>(const int40_t &rhs) const { return val <=> rhs.val; }
+  bool operator==(const int40_t &rhs) const { return val == rhs.val; }
+
+  int40_t operator&(const int40_t &rhs) { return int40_t(val & rhs.val); }
+  int40_t operator|(const int40_t &rhs) { return int40_t(val | rhs.val); }
+  int40_t operator<<(const int40_t &rhs) { return int40_t(val << rhs.val); }
+  int40_t operator>>(const int40_t &rhs) { return int40_t(val >> rhs.val); }
+
+  int64_t getVal() { return val; }
+
+  friend ostream &operator<<(ostream &output, const int40_t &v) {
+    output << v.val;
+
+    return output;
+  }
+};
+
+int64_t MEMORY[MEMMAX];
 uint cycleCount = 0;
 
 bool shouldHalt = false;
@@ -33,12 +76,11 @@ bool fileNotExist = false;
  * `IR`  - Instruction Register
  * `MAR` - Memory Address Register
  */
-struct CPU_CU
-{
-  int32_t PC;  // program counter
-  int32_t IBR; // Instruction Buffer Register
-  int32_t IR;  // Instruction Register
-  int32_t MAR; // Memory Address Buffer
+struct CPU_CU {
+  int40_t PC;  // program counter
+  int40_t IBR; // Instruction Buffer Register
+  int40_t IR;  // Instruction Register
+  int40_t MAR; // Memory Address Buffer
 };
 
 /**
@@ -49,11 +91,10 @@ struct CPU_CU
  * `MQ`  - Multiplier/Quotient
  * `MBR` - Memory Buffer Register
  */
-struct CPU_ALU
-{
-  int32_t AC; // Accumulator
-  int32_t MQ;
-  int32_t MBR; // Memory Buffer Register
+struct CPU_ALU {
+  int40_t AC; // Accumulator
+  int40_t MQ;
+  int40_t MBR; // Memory Buffer Register
 };
 
 enum OPCODES : int8_t {
@@ -65,79 +106,42 @@ enum OPCODES : int8_t {
   LOAD_NABSM = 0b00000100, // 4  - load -|M| into AC
 
   // ADD/SUB INSTRS
-  ADD_M = 0b00000101,      // 5  - Add M to AC, load result into AC
-  SUB_M = 0b00000110,      // 6  - Sub M from AC, load result into AC
-  ADD_MABS = 0b00000111,   // 7  - Add |M| to AC, load result into AC
-  SUB_MABS = 0b00001000,   // 8  - Sub |M| from AC, load result into AC
+  ADD_M = 0b00000101,    // 5  - Add M to AC, load result into AC
+  SUB_M = 0b00000110,    // 6  - Sub M from AC, load result into AC
+  ADD_MABS = 0b00000111, // 7  - Add |M| to AC, load result into AC
+  SUB_MABS = 0b00001000, // 8  - Sub |M| from AC, load result into AC
 
   // LOAD MQ INSTRS
-  LOAD_MQM = 0b00001001,   // 9  - load M into MQ
-  LOAD_MQ = 0b00001010,    // 10 - load MQ into AC
+  LOAD_MQM = 0b00001001, // 9  - load M into MQ
+  LOAD_MQ = 0b00001010,  // 10 - load MQ into AC
 
   // Mul/Div INSTRS
-  MUL_M = 0b00001011,      // 11 - Multiply MQ by M, Load upper 32 bits into AC, lower into MQ
-  DIV_M = 0b00001100,      // 12 - Divide MQ by M, load quotient into MQ, Remainder into AC
+  MUL_M = 0b00001011, // 11 - Multiply MQ by M, Load upper 32 bits into AC,
+                      // lower into MQ
+  DIV_M = 0b00001100, // 12 - Divide MQ by M, load quotient into MQ, Remainder
+                      // into AC
 
   // JUMP INSTRS
-  JUMP_ML = 0b00001101,    // 13 - Unconditional jump to M left instr
-  JUMP_MR = 0b00001110,    // 14 - Unconditional jump to M right instr
-  JUMP_PML = 0b00001111,   // 15 - If AC >= 0 jump to M left instr
-  JUMP_PMR = 0b00010000,   // 16 - If AC >= 0 jump to M right instr
+  JUMP_ML = 0b00001101,  // 13 - Unconditional jump to M left instr
+  JUMP_MR = 0b00001110,  // 14 - Unconditional jump to M right instr
+  JUMP_PML = 0b00001111, // 15 - If AC >= 0 jump to M left instr
+  JUMP_PMR = 0b00010000, // 16 - If AC >= 0 jump to M right instr
 
   // Address Modify INSTRS
-  STOR_ML = 0b00010010,    // 18 - Replace M at left instr with AC
-  STOR_MR = 0b00010011,    // 19 - Replace M at right instr with AC
+  STOR_ML = 0b00010010, // 18 - Replace M at left instr with AC
+  STOR_MR = 0b00010011, // 19 - Replace M at right instr with AC
 
-  LSH =  0b00010100,       // 20 - Left Hand Shift, Multiply AC by 2
-  RSH =  0b00010101,       // 21 - Right Hand Shift, Divide AC by 2
+  LSH = 0b00010100, // 20 - Left Hand Shift, Multiply AC by 2
+  RSH = 0b00010101, // 21 - Right Hand Shift, Divide AC by 2
 
   // Stor INSTR
-  STOR_M = 0b00100001,     // 33 - Store AC at M
+  STOR_M = 0b00100001, // 33 - Store AC at M
 };
 
-struct INSTRUCTION
-{
+struct INSTRUCTION {
   OPCODES opcode;
-  int8_t operand = 0b0;
+  int16_t operand = 0b0;
 };
-
-/**
- * @brief Converts number into binary string representation
- *
- *
- * @param n Number to be converted to binary string
- * @return binary string representation of n
- *
- * #### Usage:
- * ```cpp
- * std::string bin = binString(11); // returns "1011"
- * ```
- *
- **/
-string binaryString(int32_t n)
-{
-  // return std::to_string(n);
-  n = abs(n);
-  std::string symb = "012";
-  std::stack<char> s;
-  std::string bin = "";
-  int space = 0;
-  for (; n / 2 > 0; n /= 2) {
-    if (space == 4) {
-        s.push(' ');
-        space = 0;
-    }
-    ++space;
-    s.push(symb[n % 2]);
-      
-  }
-  s.push(symb[n % 2]);
-  for (; !s.empty(); s.pop())
-    bin += s.top();
-  
-  return bin;
-
-}
 
 /**
  * @brief Converts number into binary string representation
@@ -151,27 +155,25 @@ string binaryString(int32_t n)
  * std::string bin = binString(11); // returns "0000 0000 0000 1011"
  * ```
  **/
-string binString(int32_t n) {
+string binString(int64_t n) {
 
-  std::bitset<32> num(n);
+  std::bitset<40> num(n);
   string bin = num.to_string();
   string nBin = "";
   unsigned short c = 0;
-  
-  for (auto it = bin.begin();it != bin.end(); ++it) {
+
+  for (auto it = bin.begin(); it != bin.end(); ++it) {
     if (c == 4) {
       nBin += " ";
       c = 0;
     }
-    
+
     nBin += *it;
-    
+
     ++c;
-    
-  }  
-  
-  
-  return nBin; 
+  }
+
+  return nBin;
 }
 
 /**
@@ -197,11 +199,11 @@ string binString(int32_t n) {
  * ```
  *
  **/
-void loadInstrIntoMEM(int32_t address, INSTRUCTION instr1 = {HALT},
-                      INSTRUCTION instr2 = {HALT})
-{
-  MEMORY[address] = (instr1.opcode << 24) | (instr1.operand << 16) |
-                    (instr2.opcode << 8) | instr2.operand;
+void loadInstrIntoMEM(int64_t address, INSTRUCTION instr1 = {HALT},
+                      INSTRUCTION instr2 = {HALT}) {
+  MEMORY[address] = ((int64_t)instr1.opcode << 32) |
+                    ((int64_t)instr1.operand << 20) |
+                    ((int64_t)instr2.opcode << 8) | instr2.operand;
 }
 
 /**
@@ -222,8 +224,7 @@ void loadInstrIntoMEM(int32_t address, INSTRUCTION instr1 = {HALT},
  * 5. Places left hand instruction memory address argument into MAR (MAR
  * <-MBR(8:19))
  **/
-void fetchInstr(CPU_ALU &ALU, CPU_CU &CU)
-{
+void fetchInstr(CPU_ALU &ALU, CPU_CU &CU) {
 #if DEBUG_FETCH_CYCLE
   std::println("MAR <- PC");
 
@@ -250,23 +251,15 @@ void fetchInstr(CPU_ALU &ALU, CPU_CU &CU)
   CU.MAR = (ALU.MBR >> 16) & 0b11111111; // load memory addr into MAR
 #endif
 #if DEBUG_MEMORY
-  std::println("{:-^100}","FETCH CYCLE");
-  std::println(
-    "CYCLE: {:>6}\nCU->\n PC: {:>44}\n MAR: {:>43}\n IBR: {:>43}\n IR: {:>44}", 
-  cycleCount,
-  binString(CU.PC),
-  binString(CU.MAR),
-  binString(CU.IBR),
-  binString(CU.IR)
-  );
-  
-  std::println(
-    "ALU->\n AC: {:>44}\n MQ: {:>44}\n MBR: {:>43}\n",
-    binString(ALU.AC),
-    binString(ALU.MQ),
-    binString(ALU.MBR)
-    );
-    
+  std::println("{:-^100}", "FETCH CYCLE");
+  std::println("CYCLE: {:>6}\nCU->\n PC: {:>44}\n MAR: {:>43}\n IBR: {:>43}\n "
+               "IR: {:>44}",
+               cycleCount, binString(CU.PC), binString(CU.MAR),
+               binString(CU.IBR), binString(CU.IR));
+
+  std::println("ALU->\n AC: {:>44}\n MQ: {:>44}\n MBR: {:>43}\n",
+               binString(ALU.AC), binString(ALU.MQ), binString(ALU.MBR));
+
 #endif
   ++cycleCount;
 }
@@ -282,30 +275,21 @@ void fetchInstr(CPU_ALU &ALU, CPU_CU &CU)
  * 2. Loads operand stored in IBR(28:39) into Memory Address Register (MAR <-
  * M[MAR])
  **/
-void instrSetup(CPU_ALU &ALU, CPU_CU &CU)
-{
+void instrSetup(CPU_ALU &ALU, CPU_CU &CU) {
   int8_t op2 = (CU.IBR >> 8) & 0b11111111;
   int8_t mem = CU.IBR & 0b11111111;
   CU.IR = op2;
   CU.MAR = mem;
 #if DEBUG_MEMORY
-  std::println("{:-^100}","FETCH CYCLE");
-  std::println(
-    "CYCLE: {:>6}\nCU->\n PC: {:>44}\n MAR: {:>43}\n IBR: {:>43}\n IR: {:>44}", 
-  cycleCount,
-  binString(CU.PC),
-  binString(CU.MAR),
-  binString(CU.IBR),
-  binString(CU.IR)
-  );
-  
-  std::println(
-    "ALU->\n AC: {:>44}\n MQ: {:>44}\n MBR: {:>43}\n",
-    binString(ALU.AC),
-    binString(ALU.MQ),
-    binString(ALU.MBR)
-    );
-  
+  std::println("{:-^100}", "FETCH CYCLE");
+  std::println("CYCLE: {:>6}\nCU->\n PC: {:>44}\n MAR: {:>43}\n IBR: {:>43}\n "
+               "IR: {:>44}",
+               cycleCount, binString(CU.PC), binString(CU.MAR),
+               binString(CU.IBR), binString(CU.IR));
+
+  std::println("ALU->\n AC: {:>44}\n MQ: {:>44}\n MBR: {:>43}\n",
+               binString(ALU.AC), binString(ALU.MQ), binString(ALU.MBR));
+
 #endif
   ++cycleCount;
   ++CU.PC;
@@ -320,8 +304,7 @@ void instrSetup(CPU_ALU &ALU, CPU_CU &CU)
  * @details
  * Loads memory at address stored in MAR and loads it into MBR (MBR <- M[MAR])
  **/
-void fetchData(CPU_ALU &ALU, CPU_CU &CU)
-{
+void fetchData(CPU_ALU &ALU, CPU_CU &CU) {
   ALU.MBR = MEMORY[CU.MAR]; // get and load memory into MBR
 }
 
@@ -332,69 +315,59 @@ void fetchData(CPU_ALU &ALU, CPU_CU &CU)
  * @param CU Reference to Control Unit
  *
  **/
-void execution(CPU_ALU &ALU, CPU_CU &CU)
-{
+void execution(CPU_ALU &ALU, CPU_CU &CU) {
   string cycleExec;
-  switch (CU.IR)
-  {
-  case LOAD_M:
-  {
+  switch (CU.IR) {
+  case LOAD_M: {
 #if DEBUG_INSTRS
     cycleExec = std::format("LOAD M({})", CU.MAR);
 #endif
     ALU.AC = ALU.MBR;
     break;
   }
-  case LOAD_NEGM:
-  {
+  case LOAD_NEGM: {
     ALU.AC = -ALU.MBR;
 #if DEBUG_INSTRS
     cycleExec = std::format("LOAD -M({})", CU.MAR);
 #endif
     break;
   }
-  case LOAD_ABSM:
-  {
+  case LOAD_ABSM: {
     ALU.AC = abs(ALU.MBR);
 #if DEBUG_INSTRS
     cycleExec = std::format("LOAD |M({})|", CU.MAR);
 #endif
     break;
   }
-  case LOAD_NABSM:
-  {
+  case LOAD_NABSM: {
     ALU.AC = -abs(ALU.MBR);
 #if DEBUG_INSTRS
     cycleExec = std::format("LOAD |M({})|", CU.MAR);
 #endif
     break;
   }
-  case ADD_M:
-  {
+  case ADD_M: {
 #if DEBUG_INSTRS
     cycleExec = std::format("ADD M({})", CU.MAR);
 #endif
     ALU.AC = ALU.AC + ALU.MBR;
     break;
   }
-  case SUB_M:
-  {
+  case SUB_M: {
 #if DEBUG_INSTRS
     cycleExec = std::format("SUB M({})", CU.MAR);
 #endif
     ALU.AC = ALU.AC - ALU.MBR;
     break;
   }
-  case ADD_MABS:
-  {
+  case ADD_MABS: {
 #if DEBUG_INSTRS
     cycleExec = std::format("ADD |M({})|", CU.MAR);
 #endif
     ALU.AC = ALU.AC + abs(ALU.MBR);
     break;
   }
-  case SUB_MABS:
-  {
+  case SUB_MABS: {
 #if DEBUG_INSTRS
     cycleExec = std::format("SUB |M({})|", CU.MAR);
 #endif
@@ -402,8 +375,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
     break;
   }
 
-  case LOAD_MQM:
-  {
+  case LOAD_MQM: {
 #if DEBUG_INSTRS
     cycleExec = std::format("LOAD MQ,M({})", CU.MAR);
 #endif
@@ -411,8 +383,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
     break;
   }
 
-  case LOAD_MQ:
-  {
+  case LOAD_MQ: {
 #if DEBUG_INSTRS
     cycleExec = std::format("LOAD MQ", CU.MAR);
 #endif
@@ -420,12 +391,12 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
     break;
   }
 
-  case MUL_M:
-  {
+  case MUL_M: {
 #if DEBUG_INSTRS
     cycleExec = std::format("MUL M({})", CU.MAR);
 #endif
-    int64_t product = static_cast<int64_t>(ALU.MQ) * static_cast<int64_t>(ALU.MBR);
+    int64_t product =
+        static_cast<int64_t>(ALU.MQ) * static_cast<int64_t>(ALU.MBR);
 
     ALU.AC = static_cast<int32_t>(product >> 32);
 
@@ -434,8 +405,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
     break;
   }
 
-  case DIV_M:
-  {
+  case DIV_M: {
 #if DEBUG_INSTRS
     cycleExec = std::format("MUL M({})", CU.MAR);
 #endif
@@ -444,8 +414,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
     break;
   }
 
-  case JUMP_ML:
-  {
+  case JUMP_ML: {
 #if DEBUG_INSTRS
     cycleExec = std::format("JUMP M({},8:19)", CU.MAR);
 #endif
@@ -454,8 +423,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
 
     break;
   }
-  case JUMP_MR:
-  {
+  case JUMP_MR: {
 #if DEBUG_INSTRS
     cycleExec = std::format("JUMP M({},20:39)", CU.MAR);
 #endif
@@ -465,26 +433,22 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
     fetchInstr(ALU, CU);
     break;
   }
-  
-  case JUMP_PML:
-  {
+
+  case JUMP_PML: {
 #if DEBUG_INSTRS
     cycleExec = std::format("JUMP +M({},8:19)", CU.MAR);
 #endif
-    if (ALU.AC >= 0)
-    {
+    if (ALU.AC >= 0) {
       CU.PC = CU.MAR;
       right = false;
     }
     break;
   }
-  case JUMP_PMR:
-  {
+  case JUMP_PMR: {
 #if DEBUG_INSTRS
     cycleExec = std::format("JUMP +M({},20:39)", CU.MAR);
 #endif
-    if (ALU.AC >= 0)
-    {
+    if (ALU.AC >= 0) {
       CU.PC = CU.MAR;
       right = true;
       fetchInstr(ALU, CU);
@@ -492,8 +456,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
     break;
   }
 
-  case STOR_ML:
-  {
+  case STOR_ML: {
 #if DEBUG_INSTRS
     cycleExec = std::format("STOR M({},8:19)", CU.MAR);
 #endif
@@ -504,8 +467,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
     MEMORY[CU.MAR] = (op1 << 24) | (ALU.AC << 16) | (op2 << 8) | mem2;
     break;
   }
-  case STOR_MR:
-  {
+  case STOR_MR: {
 #if DEBUG_INSTRS
     cycleExec = std::format("STOR M({},20:39)", CU.MAR);
 #endif
@@ -517,8 +479,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
     break;
   }
 
-  case LSH:
-  {
+  case LSH: {
 #if DEBUG_INSTRS
     cycleExec = std::format("LSH");
 #endif
@@ -526,8 +487,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
     break;
   }
 
-  case RSH:
-  {
+  case RSH: {
 #if DEBUG_INSTRS
     cycleExec = std::format("RSH");
 #endif
@@ -535,8 +495,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
     break;
   }
 
-   case STOR_M:
-  {
+  case STOR_M: {
 #if DEBUG_INSTRS
     cycleExec = std::format("STOR M({})", CU.MAR);
 #endif
@@ -545,8 +504,7 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
     break;
   }
 
-  case HALT:
-  {
+  case HALT: {
 #if DEBUG_INSTRS
     cycleExec = std::format("HALT");
 #endif
@@ -556,36 +514,27 @@ void execution(CPU_ALU &ALU, CPU_CU &CU)
   }
 
 #if DEBUG_MEMORY
-  std::println("{:-^100}","EXECUTE CYCLE");
-  std::println(
-    "INSTR: {:>7}\nCYCLE: {:>6}\nCU->\n PC: {:>44}\n MAR: {:>43}\n IBR: {:>43}\n IR: {:>44}",
-    cycleExec, 
-  cycleCount,
-  binString(CU.PC),
-  binString(CU.MAR),
-  binString(CU.IBR),
-  binString(CU.IR)
-  );
-  
-  std::println(
-    "ALU->\n AC: {:>44}\n MQ: {:>44}\n MBR: {:>43}\n",
-    binString(ALU.AC),
-    binString(ALU.MQ),
-    binString(ALU.MBR)
-    );
-  
+  std::println("{:-^100}", "EXECUTE CYCLE");
+  std::println("INSTR: {:>7}\nCYCLE: {:>6}\nCU->\n PC: {:>44}\n MAR: {:>43}\n "
+               "IBR: {:>43}\n IR: {:>44}",
+               cycleExec, cycleCount, binString(CU.PC), binString(CU.MAR),
+               binString(CU.IBR), binString(CU.IR));
+
+  std::println("ALU->\n AC: {:>44}\n MQ: {:>44}\n MBR: {:>43}\n",
+               binString(ALU.AC), binString(ALU.MQ), binString(ALU.MBR));
+
 #endif
   ++cycleCount;
 }
 
-std::vector<int64_t> readFile(const char* filename) {
-    std::ifstream file(filename, std::ios::binary);
+std::vector<int64_t> readFile(const char *filename) {
+  std::ifstream file(filename, std::ios::binary);
 
-    const auto fileSize = std::filesystem::file_size(filename);
+  const auto fileSize = std::filesystem::file_size(filename);
 
-    std::vector<int64_t> fileData(fileSize/ sizeof(uint64_t));
-    file.read((char*) &fileData[0], fileSize);
-    return fileData;
+  std::vector<int64_t> fileData(fileSize / sizeof(uint64_t));
+  file.read((char *)&fileData[0], fileSize);
+  return fileData;
 }
 
 int32_t loadFileDataIntoMem(std::vector<int64_t> data, bool getPC = false) {
@@ -594,39 +543,40 @@ int32_t loadFileDataIntoMem(std::vector<int64_t> data, bool getPC = false) {
   for (size_t i = 0; i < data.size(); ++i) {
 
     int32_t addr = (data[i] >> 32) & 0b11111111;
-    int32_t mem =  static_cast<int32_t>(data[i]);
-    
+    int32_t mem = static_cast<int32_t>(data[i]);
+
     MEMORY[addr] = mem;
     if (getPC && i == 0) {
       PC = addr;
-    } 
-    if (data[i] == 0 && i != 0) break;
+    }
+    if (data[i] == 0 && i != 0)
+      break;
   }
   return PC;
-
 }
 
 // void program(CPU_ALU &ALU, CPU_CU &CU) {
 
-  // MEMORY[0] = 10; // a
-  // MEMORY[1] = 20; // b
+// MEMORY[0] = 10; // a
+// MEMORY[1] = 20; // b
 
-  // INSTRUCTION l3 = {LOAD_M,0};  // first instr on left block of memory addr 3
-  // INSTRUCTION r3 = {ADD_M,1};   // second instr on right block of memory addr 3
-  // INSTRUCTION l4 = {STOR_M,2};  // first instr on left block of memory addr 4
+// INSTRUCTION l3 = {LOAD_M,0};  // first instr on left block of memory addr 3
+// INSTRUCTION r3 = {ADD_M,1};   // second instr on right block of memory addr 3
+// INSTRUCTION l4 = {STOR_M,2};  // first instr on left block of memory addr 4
 
-  // loadInstrIntoMEM(3,l3,r3); // loads first and second instrs into memory addr 3
-  // loadInstrIntoMEM(4,l4);    // loads first instr and HALT instr into memory addr 4
+// loadInstrIntoMEM(3,l3,r3); // loads first and second instrs into memory addr
+// 3 loadInstrIntoMEM(4,l4);    // loads first instr and HALT instr into memory
+// addr 4
 
-  // CU.PC = 3; // specifies location of first instruction
+// CU.PC = 3; // specifies location of first instruction
 
 // }
 
-int main(int argc, char* argv[]) 
-{
+int main(int argc, char *argv[]) {
 
+  int40_t num =
 
-  if (argc == 1) {
+      if (argc == 1) {
     std::println("ERROR: no input files");
     std::println("Expected: ias <IAS memory map>.imm <IAS instr map>.iim");
     return 1;
@@ -643,17 +593,16 @@ int main(int argc, char* argv[])
     std::println("Expected: ias <IAS memory map>.imm <IAS instr map>.iim");
     return 1;
   }
-  
+
   CPU_ALU ALU = {0};
   CPU_CU CU = {0};
- 
 
   if (!std::filesystem::exists(argv[1])) {
-    std::println("file \"{}\" does not exist",argv[1]);
+    std::println("file \"{}\" does not exist", argv[1]);
     fileNotExist = true;
   }
   if (!std::filesystem::exists(argv[2])) {
-    std::println("file \"{}\" does not exist",argv[2]);
+    std::println("file \"{}\" does not exist", argv[2]);
     fileNotExist = true;
   }
 
@@ -663,20 +612,14 @@ int main(int argc, char* argv[])
   }
 
   loadFileDataIntoMem(readFile(argv[1]));
-  CU.PC = loadFileDataIntoMem(readFile(argv[2]),true);
+  CU.PC = loadFileDataIntoMem(readFile(argv[2]), true);
 
-  
-  
-  while (!shouldHalt)
-  {
-    if (right)
-    {
+  while (!shouldHalt) {
+    if (right) {
 
       instrSetup(ALU, CU);
       right = false;
-    }
-    else
-    {
+    } else {
 
       fetchInstr(ALU, CU);
       right = true;
@@ -687,19 +630,21 @@ int main(int argc, char* argv[])
     execution(ALU, CU);
   }
 
-  #if DEBUG_MEM_DUMP
+#if DEBUG_MEM_DUMP
 
-  std::println("{:-^100}","MEMORY DUMP ");
+  std::println("{:-^100}", "MEMORY DUMP ");
   for (size_t i = 0; i < MEMMAX; ++i) {
-    if (MEMORY[i] == 0 && i != 0) continue;
-    #if DEBUG_MEM_DUMP_BIN
-    std::println("ADDR {} - {}",binString(i),binString(MEMORY[i]));
-    #else
-    std::println("ADDR {}:\n INT VAL -> {}\n BIN VAL -> {}\n",i,MEMORY[i],binString(MEMORY[i]));
+    if (MEMORY[i] == 0 && i != 0)
+      continue;
+#if DEBUG_MEM_DUMP_BIN
+    std::println("ADDR {} - {}", binString(i), binString(MEMORY[i]));
+#else
+    std::println("ADDR {}:\n INT VAL -> {}\n BIN VAL -> {}\n", i, MEMORY[i],
+                 binString(MEMORY[i]));
 
-    #endif
+#endif
   }
-  #endif
+#endif
 
   return 0;
 }
